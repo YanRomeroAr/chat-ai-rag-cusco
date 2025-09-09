@@ -1,9 +1,9 @@
 """
-Cliente de Pinecone para gestión de vectores
-Este módulo maneja toda la interacción con Pinecone
+Cliente de Pinecone para gestión de vectores - Compatible con API 2.2.4
+Este módulo maneja toda la interacción con Pinecone usando la API antigua
 """
 
-from pinecone import Pinecone, ServerlessSpec
+import pinecone
 import logging
 from typing import List, Dict, Tuple, Optional
 from sentence_transformers import SentenceTransformer
@@ -19,8 +19,11 @@ class PineconeClient:
     def __init__(self):
         """Inicializa el cliente de Pinecone"""
         try:
-            # Inicializar Pinecone con nueva API
-            self.pc = Pinecone(api_key=rag_config.pinecone_api_key)
+            # Inicializar Pinecone con API antigua
+            pinecone.init(
+                api_key=rag_config.pinecone_api_key,
+                environment=rag_config.pinecone_environment
+            )
             
             # Cargar modelo de embeddings
             self.embedding_model = SentenceTransformer(rag_config.embedding_model)
@@ -38,25 +41,22 @@ class PineconeClient:
         """Conecta al índice de Pinecone, lo crea si no existe"""
         try:
             # Verificar si el índice existe
-            existing_indexes = [index.name for index in self.pc.list_indexes()]
-            
-            if rag_config.pinecone_index_name not in existing_indexes:
+            if rag_config.pinecone_index_name not in pinecone.list_indexes():
                 logger.info(f"Creando índice: {rag_config.pinecone_index_name}")
                 
-                # Crear índice nuevo con nueva API
-                self.pc.create_index(
+                # Crear índice nuevo con API antigua
+                pinecone.create_index(
                     name=rag_config.pinecone_index_name,
                     dimension=rag_config.embedding_dimension,
                     metric='cosine',  # Métrica de similitud coseno
-                    spec=ServerlessSpec(
-                        cloud='aws',
-                        region='us-east-1'
-                    )
+                    metadata_config={
+                        "indexed": ["document_type", "section", "source"]
+                    }
                 )
                 logger.info("✅ Índice creado exitosamente")
             
             # Conectar al índice
-            self.index = self.pc.Index(rag_config.pinecone_index_name)
+            self.index = pinecone.Index(rag_config.pinecone_index_name)
             logger.info(f"✅ Conectado al índice: {rag_config.pinecone_index_name}")
             
         except Exception as e:
