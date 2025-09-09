@@ -1,7 +1,7 @@
-streamlit
-openai
-pinecone-client
-sentence-transformers
-langchain
-langchain-openai
-pypdf2
+streamlit==1.28.0
+openai==1.3.0
+pinecone[grpc]==3.0.3
+sentence-transformers==2.2.2
+langchain==0.0.350
+langchain-openai==0.0.2
+pypdf2==3.0.1
