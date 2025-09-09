@@ -166,4 +166,172 @@ class DocumentProcessor:
             # Dividir en chunks
             chunks = self.chunk_text(clean_text, source_name)
             
-            logger.info(f"
+            logger.info(f"✅ Procesado {pdf_path}: {len(chunks)} chunks creados")
+            return chunks
+            
+        except Exception as e:
+            logger.error(f"❌ Error procesando {pdf_path}: {e}")
+            return []
+    
+    def process_multiple_pdfs(self, pdf_directory: str) -> List[DocumentChunk]:
+        """
+        Procesa múltiples archivos PDF de un directorio
+        
+        Args:
+            pdf_directory: Directorio con archivos PDF
+            
+        Returns:
+            Lista combinada de todos los chunks
+        """
+        all_chunks = []
+        
+        try:
+            pdf_files = [f for f in os.listdir(pdf_directory) if f.endswith('.pdf')]
+            logger.info(f"📂 Encontrados {len(pdf_files)} archivos PDF en {pdf_directory}")
+            
+            for pdf_file in pdf_files:
+                pdf_path = os.path.join(pdf_directory, pdf_file)
+                chunks = self.process_pdf_file(pdf_path)
+                all_chunks.extend(chunks)
+            
+            logger.info(f"✅ Procesados {len(pdf_files)} PDFs: {len(all_chunks)} chunks totales")
+            return all_chunks
+            
+        except Exception as e:
+            logger.error(f"❌ Error procesando directorio {pdf_directory}: {e}")
+            return []
+    
+    def upload_chunks_to_pinecone(self, chunks: List[DocumentChunk]) -> bool:
+        """
+        Sube chunks procesados a Pinecone
+        
+        Args:
+            chunks: Lista de DocumentChunk a subir
+            
+        Returns:
+            True si fue exitoso
+        """
+        try:
+            if not pinecone_client:
+                logger.error("❌ Cliente Pinecone no disponible")
+                return False
+            
+            # Convertir chunks a formato esperado por Pinecone
+            documents = []
+            for chunk in chunks:
+                documents.append({
+                    'id': chunk.id,
+                    'text': chunk.text,
+                    'metadata': chunk.metadata
+                })
+            
+            # Subir a Pinecone
+            success = pinecone_client.upsert_documents(documents)
+            
+            if success:
+                logger.info(f"✅ {len(chunks)} chunks subidos a Pinecone exitosamente")
+            else:
+                logger.error("❌ Error subiendo chunks a Pinecone")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"❌ Error subiendo a Pinecone: {e}")
+            return False
+
+def create_sample_tupa_documents() -> List[Dict]:
+    """
+    Crea documentos de ejemplo del TUPA para testing
+    
+    Returns:
+        Lista de documentos de ejemplo
+    """
+    sample_docs = [
+        {
+            'id': 'tupa_licencia_funcionamiento',
+            'text': """
+            LICENCIA DE FUNCIONAMIENTO - GOBIERNO REGIONAL CUSCO
+            
+            REQUISITOS:
+            1. Solicitud dirigida al Gerente Regional de Desarrollo Económico
+            2. Copia del RUC y DNI del representante legal
+            3. Declaración Jurada de cumplimiento de condiciones de seguridad
+            4. Croquis de ubicación del establecimiento
+            5. Copia de la autorización sectorial correspondiente
+            
+            PLAZO: 15 días hábiles
+            COSTO: S/ 120.00 (12% UIT)
+            
+            HORARIOS DE ATENCIÓN:
+            Lunes a Viernes: 8:00 AM - 4:00 PM
+            Ubicación: Av. Regional 123, Cusco
+            """,
+            'metadata': {
+                'source': 'TUPA_2024_Licencias',
+                'document_type': 'tupa',
+                'section': 'licencia_funcionamiento'
+            }
+        },
+        {
+            'id': 'tupa_permiso_construccion',
+            'text': """
+            PERMISO DE CONSTRUCCIÓN - GOBIERNO REGIONAL CUSCO
+            
+            MODALIDAD A - Construcciones menores (hasta 120 m²):
+            REQUISITOS:
+            1. Solicitud con firma del propietario
+            2. Copia literal de dominio vigente
+            3. Planos de arquitectura y estructuras (2 juegos)
+            4. Memoria descriptiva firmada por ingeniero colegiado
+            5. Estudio de mecánica de suelos
+            
+            PLAZO: 30 días hábiles
+            COSTO: S/ 350.00 + S/ 2.50 por m²
+            
+            MODALIDAD B - Construcciones mayores (más de 120 m²):
+            Requiere evaluación técnica adicional
+            PLAZO: 45 días hábiles
+            """,
+            'metadata': {
+                'source': 'TUPA_2024_Construccion',
+                'document_type': 'tupa',
+                'section': 'permiso_construccion'
+            }
+        },
+        {
+            'id': 'tupa_certificado_zonificacion',
+            'text': """
+            CERTIFICADO DE ZONIFICACIÓN Y VÍAS - GOBIERNO REGIONAL CUSCO
+            
+            DESCRIPCIÓN:
+            Documento que certifica la zonificación urbana y características de vías
+            de un predio específico según el Plan de Desarrollo Urbano vigente.
+            
+            REQUISITOS:
+            1. Solicitud dirigida a la Gerencia de Infraestructura
+            2. Copia simple del documento de identidad del solicitante
+            3. Copia literal de dominio no mayor a 30 días
+            4. Plano de ubicación y localización del predio
+            
+            PLAZO: 10 días hábiles
+            COSTO: S/ 85.00 (8.5% UIT)
+            
+            VALIDEZ: 2 años desde su emisión
+            
+            OFICINA DE ATENCIÓN:
+            Gerencia Regional de Infraestructura
+            Jr. Comercio 456, 2do piso, Cusco
+            Teléfono: (084) 234-567
+            """,
+            'metadata': {
+                'source': 'TUPA_2024_Zonificacion',
+                'document_type': 'tupa',
+                'section': 'certificado_zonificacion'
+            }
+        }
+    ]
+    
+    return sample_docs
+
+# Instancia global del procesador
+document_processor = DocumentProcessor()
